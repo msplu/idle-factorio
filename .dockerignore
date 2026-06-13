@@ -1,0 +1,12 @@
+test.js
+README.md
+.dockerignore
+Dockerfile
+compose.yaml
+docker-compose.yml
+Justfile
+Makefile
+.github
+.git
+node_modules
+*.md

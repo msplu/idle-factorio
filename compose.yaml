@@ -1,0 +1,24 @@
+# Stack Docker pour Idle Factorio.
+#   Jeu :    docker compose up -d   → http://localhost:8080
+#   Tests :  docker compose run --rm tests   (ou `just test`)
+services:
+  # --- Serveur du jeu (production) ---
+  idle-factorio:
+    build: .
+    image: idle-factorio:latest
+    container_name: idle-factorio
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  # --- Exécution Node dans le conteneur (tests, lint) ---
+  # Profile "tools" → ne démarre PAS avec `docker compose up`, uniquement via
+  # `docker compose run --rm tests [commande]`. On n'utilise jamais le Node de
+  # l'hôte : tout passe par cette image épinglée, donc reproductible en CI.
+  tests:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app:ro          # code monté en lecture seule (les tests n'écrivent rien)
+    profiles: ["tools"]
+    command: ["node", "test.js"]

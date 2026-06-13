@@ -1,0 +1,26 @@
+# CI d'exemple pour Idle Factorio.
+# Tout passe par Docker (service `tests`, image Node épinglée) : aucun Node
+# n'est installé sur le runner, c'est exactement ce qui tourne en local.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint (syntaxe JS, dans Docker)
+        run: >-
+          docker compose run --rm tests
+          sh -c 'set -e; for f in data.js engine.js ui.js test.js; do node --check "$f"; done'
+
+      - name: Tests (cohérence des données, arbre techno, faisabilité fusée)
+        run: docker compose run --rm tests
+
+      - name: Build de l'image web
+        run: docker compose build idle-factorio

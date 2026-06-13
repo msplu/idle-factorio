@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Idle Factorio — Objectif : la fusée 🚀</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Barre supérieure -->
+  <header class="topbar">
+    <div class="brand">⚙️ <b>Idle&nbsp;Factorio</b></div>
+    <div class="top-stats">
+      <div class="stat">⏱️ <span id="playtime">0h 00m 00s</span></div>
+      <div class="bar-wrap" title="Bilan électrique">
+        <span class="bar-label">⚡ Énergie</span>
+        <div class="bar"><div id="powerbar" class="bar-fill good" style="width:100%"></div></div>
+      </div>
+      <div class="bar-wrap" title="Progression de la fusée">
+        <span class="bar-label">🚀 Fusée</span>
+        <div class="bar"><div id="rocketbar" class="bar-fill rocket" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="savestate" class="savestate"></span>
+      <button id="reset-btn" class="reset-btn" title="Réinitialiser la partie">↺</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Colonne gauche : ressources + minage -->
+    <aside class="col col-left">
+      <section class="panel">
+        <h2>📦 Ressources</h2>
+        <div id="resources" class="resources"></div>
+      </section>
+      <section class="panel">
+        <h2>✋ Minage manuel</h2>
+        <div id="mining"></div>
+      </section>
+      <section class="panel">
+        <h2>⚡ Énergie</h2>
+        <div id="energy"></div>
+      </section>
+    </aside>
+
+    <!-- Colonne centrale : production -->
+    <section class="col col-center panel">
+      <h2>🏭 Production</h2>
+      <p class="hint">Construis des machines pour automatiser chaque recette. Les machines consomment du charbon (🔥) ou de l'électricité (⚡). ✋ = fabriquer 1 à la main.</p>
+      <div id="production"></div>
+    </section>
+
+    <!-- Colonne droite : recherche + fusée -->
+    <aside class="col col-right">
+      <section class="panel">
+        <h2>🚀 Fusée</h2>
+        <div id="rocket"></div>
+      </section>
+      <section class="panel">
+        <h2>🔬 Recherche</h2>
+        <div id="research"></div>
+      </section>
+    </aside>
+  </main>
+
+  <!-- Écran de victoire -->
+  <div id="victory" class="victory">
+    <div class="victory-box">
+      <div class="victory-rocket">🚀</div>
+      <h1>Fusée lancée !</h1>
+      <p>Félicitations, tu as bâti une chaîne de production complète et conquis l'espace !</p>
+      <div id="victory-stats" class="victory-stats"></div>
+      <button id="victory-close" class="launch-btn">Continuer à jouer</button>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="engine.js"></script>
+  <script src="ui.js"></script>
+</body>
+</html>
