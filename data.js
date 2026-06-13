@@ -143,7 +143,7 @@ const GAME_DATA = (() => {
 
     // Sciences (order 7) — fabriquées en assembleur
     { id: 'craft-automation-science', name: 'Science : automatisation', cat: 'science', order: 7, time: 5,  hand: true, in: { 'copper-plate': 1, 'iron-gear': 1 }, out: { 'automation-science': 1 } },
-    { id: 'craft-logistic-science',   name: 'Science : logistique',     cat: 'science', order: 7, time: 6,  hand: true, unlock: 'logistics',        in: { 'inserter': 1, 'transport-belt': 1 }, out: { 'logistic-science': 1 } },
+    { id: 'craft-logistic-science',   name: 'Science : logistique',     cat: 'science', order: 7, time: 6,  hand: true, unlock: 'logistics',        in: { 'inserter': 1, 'transport-belt': 1, 'automation-science': 1 }, out: { 'logistic-science': 1 } },
     { id: 'craft-chemical-science',   name: 'Science : chimie',         cat: 'science', order: 7, time: 24, hand: true, unlock: 'chemical-science', in: { 'sulfur': 1, 'advanced-circuit': 1, 'engine-unit': 1 }, out: { 'chemical-science': 1 } },
     { id: 'craft-utility-science',    name: 'Science : utilitaire',     cat: 'science', order: 7, time: 21, hand: true, unlock: 'utility-science',  in: { 'processing-unit': 1, 'low-density-structure': 1, 'battery': 1 }, out: { 'utility-science': 1 } },
     { id: 'craft-production-science', name: 'Science : production',      cat: 'science', order: 7, time: 21, hand: true, unlock: 'production-science', in: { 'electric-engine-unit': 1, 'advanced-circuit': 2, 'concrete': 5 }, out: { 'production-science': 1 } },
@@ -222,7 +222,6 @@ const GAME_DATA = (() => {
     { id: 'rocket-silo', name: '🚀 Silo à fusée', cost: { 'utility-science': 100, 'chemical-science': 100, 'production-science': 100 }, prereq: ['rocket-fuel', 'rocket-control-unit', 'low-density-structure', 'utility-science', 'concrete', 'production-science'], machines: ['rocket-silo'], recipes: ['craft-rocket-part'], desc: 'Construit le silo et permet d\'assembler la fusée. Objectif final !' },
 
     // Recherches répétables
-    { id: 'mining-tools', name: 'Outils de minage', repeatable: true, costMult: 1.8, cost: { 'automation-science': 10 }, prereq: [], effect: { clickPower: 1 }, desc: '+1 ressource par clic manuel (cumulable).' },
     { id: 'machine-productivity', name: 'Vitesse des machines', repeatable: true, costMult: 1.7, cost: { 'logistic-science': 25 }, prereq: ['logistics'], effect: { speed: 0.05 }, desc: '+5 % de vitesse pour toutes les machines (cumulable).' },
   ];
 

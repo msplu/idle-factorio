@@ -208,12 +208,16 @@
     el.powerbar.style.width = pct + '%';
     el.powerbar.className = 'bar-fill ' + (pct >= 99.5 ? 'good' : pct >= 50 ? 'warn' : 'bad');
 
-    const overload = e.demand > e.capacity + 1e-6;
+    const lackCapacity = e.demand > e.capacity + 1;
+    const lackSupply = !lackCapacity && e.supply < e.demand - 1; // capacité suffisante mais carburant manquant
+    const nukeStarved = (Game.state.generators['nuclear-reactor'] > 0) && e.nukeDesired > 0.5 && e.nuclearOutput < 0.5;
     let html = `<div class="energy-summary">
-      <span>⚡ Capacité : <b>${fmt(e.capacity)} kW</b></span>
+      <span>⚡ Capacité : <b>${fmt(e.capacity)} kW</b> &nbsp;·&nbsp; fournie : <b>${fmt(e.supply)} kW</b></span>
       <span>🔌 Consommation : <b>${fmt(e.demand)} kW</b></span>
-      ${overload ? '<span class="bad">⚠️ Surcharge : ajoute des générateurs.</span>' : ''}
-      ${e.coalShort ? '<span class="bad">⚠️ Manque de charbon : mine-en à la main pour relancer !</span>' : ''}
+      ${lackCapacity ? '<span class="bad">⚠️ Capacité insuffisante : ajoute des générateurs.</span>' : ''}
+      ${lackSupply ? '<span class="bad">⚠️ Production insuffisante (carburant manquant) : les machines ralentissent.</span>' : ''}
+      ${e.coalShort ? '<span class="bad">⚠️ Manque de charbon.</span>' : ''}
+      ${nukeStarved ? '<span class="bad">⚠️ Réacteur sans combustible : fabrique des cellules de combustible 🧨.</span>' : ''}
     </div>`;
 
     for (const g of gens) {
@@ -222,14 +226,23 @@
       const afford = Game.canAfford(gen.cost);
       const fuelIcon = gen.fuelItem && ITEMS[gen.fuelItem] ? ITEMS[gen.fuelItem].icon : '⚫';
       const fuelInfo = gen.fuel > 0 ? ` — ${fuelIcon}${gen.fuel}/s max` : ' — gratuit';
-      // Production RÉELLE de ce type de générateur (selon la distribution solaire→nucléaire→vapeur)
+      // Production RÉELLE de ce type de générateur (distribution solaire→nucléaire→vapeur)
       const cap = count * gen.output;
-      const actual = g === 'solar-panel' ? e.solarOutput : g === 'steam-engine' ? e.steamOutput : g === 'nuclear-reactor' ? e.nuclearOutput : 0;
-      const idle = count > 0 && actual < 0.5 && cap > 0;
+      let actual = 0, status = '', rateCls = 'pos';
+      if (g === 'solar-panel') {
+        actual = Math.min(cap, e.demand);
+        if (count > 0 && actual < 0.5) { rateCls = 'warn'; status = ' (veille)'; }
+      } else if (g === 'nuclear-reactor') {
+        actual = e.nuclearOutput;
+        if (count > 0 && actual < 0.5) { rateCls = 'warn'; status = e.nukeDesired > 0.5 ? ' ⏳ plus de combustible' : ' (veille)'; }
+      } else if (g === 'steam-engine') {
+        actual = e.steamOutput;
+        if (count > 0 && actual < 0.5) { rateCls = 'warn'; status = e.steamDesired > 0.5 ? ' ⏳ plus de charbon' : ' (veille)'; }
+      }
       html += `<div class="recipe">
         <div class="recipe-head">
           <span class="recipe-name">${gen.icon} ${gen.name} <span class="owned-machine">×${count}</span></span>
-          <span class="recipe-rate ${idle ? 'warn' : 'pos'}">${fmt(actual)} / ${fmt(cap)} kW${idle ? ' (veille)' : ''}</span>
+          <span class="recipe-rate ${rateCls}">${fmt(actual)} / ${fmt(cap)} kW${status}</span>
         </div>
         <div class="recipe-flow">+${gen.output} kW${fuelInfo}</div>
         <div class="recipe-actions">

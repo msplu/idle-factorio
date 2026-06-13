@@ -214,7 +214,8 @@ const Game = (() => {
     const powerRatio = demand > 0 ? Math.min(1, supply / demand) : 1;
 
     return { coalRatio, powerRatio, supply, capacity, demand, coalDemand, coalBurn, uraniumBurn,
-             solarOutput, steamOutput, nuclearOutput, steamCap, nukeCap, coalShort };
+             solarOutput, steamOutput, nuclearOutput, steamCap, nukeCap, coalShort,
+             nukeDesired: nukeWant, steamDesired: steamWant };
   }
 
   // Une recette est « active » si toutes ses entrées sont disponibles (>0)
