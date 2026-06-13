@@ -130,6 +130,7 @@ body {
 .rm-btn { background: #3a2f2f; color: var(--red); padding: 4px 6px; }
 .rm-btn:hover { border-color: var(--red); }
 .build-cost { display: inline-flex; gap: 4px; margin-left: 2px; }
+.prod-badge { color: var(--green); font-size: 10px; font-weight: 700; }
 .cost-item { font-size: 11px; white-space: nowrap; }
 .cost-item.ok { color: var(--green); }
 .cost-item.no { color: var(--red); }

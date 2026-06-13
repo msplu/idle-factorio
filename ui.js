@@ -154,8 +154,9 @@
     for (const mid of machines) {
       const m = MACHINES[mid];
       const afford = Game.canAfford(m.cost);
-      buttons += `<button class="build-btn ${afford ? '' : 'disabled'}" data-action="build" data-recipe="${r.id}" data-machine="${mid}" title="${m.name} — ${costTitle(m.cost)}">
-        + ${m.icon} <span class="build-cost">${fmtCost(m.cost)}</span>
+      const badge = m.prod ? ` <span class="prod-badge">+${Math.round(m.prod * 100)}%</span>` : '';
+      buttons += `<button class="build-btn ${afford ? '' : 'disabled'}" data-action="build" data-recipe="${r.id}" data-machine="${mid}" title="${m.name} — ${machineSpec(m)} — coût : ${costTitle(m.cost)}">
+        + ${m.icon}${badge} <span class="build-cost">${fmtCost(m.cost)}</span>
       </button>`;
     }
     let removeBtns = '';
@@ -181,6 +182,14 @@
         ${removeBtns}
       </div>
     </div>`;
+  }
+
+  // Résumé des caractéristiques d'une machine (vitesse, productivité, énergie)
+  function machineSpec(m) {
+    const parts = [`vitesse ×${m.speed}`];
+    if (m.prod) parts.push(`+${Math.round(m.prod * 100)}% production`);
+    parts.push(m.power ? `${m.power} kW` : m.fuel ? `⚫${m.fuel}/s` : 'sans énergie');
+    return parts.join(', ');
   }
 
   function costTitle(cost) {
@@ -212,11 +221,15 @@
       const count = Game.state.generators[g] || 0;
       const afford = Game.canAfford(gen.cost);
       const fuelIcon = gen.fuelItem && ITEMS[gen.fuelItem] ? ITEMS[gen.fuelItem].icon : '⚫';
-      const fuelInfo = gen.fuel > 0 ? ` — ${fuelIcon}${gen.fuel}/s` : ' — gratuit';
+      const fuelInfo = gen.fuel > 0 ? ` — ${fuelIcon}${gen.fuel}/s max` : ' — gratuit';
+      // Production RÉELLE de ce type de générateur (selon la distribution solaire→nucléaire→vapeur)
+      const cap = count * gen.output;
+      const actual = g === 'solar-panel' ? e.solarOutput : g === 'steam-engine' ? e.steamOutput : g === 'nuclear-reactor' ? e.nuclearOutput : 0;
+      const idle = count > 0 && actual < 0.5 && cap > 0;
       html += `<div class="recipe">
         <div class="recipe-head">
           <span class="recipe-name">${gen.icon} ${gen.name} <span class="owned-machine">×${count}</span></span>
-          <span class="recipe-rate pos">${fmt(count * gen.output)} kW</span>
+          <span class="recipe-rate ${idle ? 'warn' : 'pos'}">${fmt(actual)} / ${fmt(cap)} kW${idle ? ' (veille)' : ''}</span>
         </div>
         <div class="recipe-flow">+${gen.output} kW${fuelInfo}</div>
         <div class="recipe-actions">

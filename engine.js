@@ -286,9 +286,11 @@ const Game = (() => {
         if (crafts <= 0) continue;
 
         recipeAccum[r.id] = (recipeAccum[r.id] || 0) + crafts; // production brute réelle
-        // Bonus des modules de productivité : sortie supplémentaire gratuite sur
-        // les recettes de transformation (entrées inchangées).
-        const prodMult = PROD_CATS.has(r.cat) ? (1 + state.prodModules * (CONFIG.MODULE_PRODUCTIVITY || 0)) : 1;
+        // Bonus de productivité (modules globaux + bonus propre à la machine) :
+        // sortie supplémentaire gratuite sur les recettes de transformation.
+        const prodMult = PROD_CATS.has(r.cat)
+          ? (1 + state.prodModules * (CONFIG.MODULE_PRODUCTIVITY || 0) + (m.prod || 0))
+          : 1;
         for (const id in r.in) {
           state.stock[id] -= r.in[id] * crafts;
           flowAccum[id] = (flowAccum[id] || 0) - r.in[id] * crafts;

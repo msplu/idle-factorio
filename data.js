@@ -163,11 +163,11 @@ const GAME_DATA = (() => {
 
     'stone-furnace': { name: 'Four en pierre', icon: '🔥', cats: ['smelting'], speed: 1, power: 0, fuel: 0.4, cost: { 'stone': 5 } },
     'steel-furnace': { name: 'Four en acier', icon: '🔥', cats: ['smelting'], speed: 2, power: 0, fuel: 0.4, unlock: 'advanced-material-processing', cost: { 'steel-plate': 6, 'stone-brick': 10 } },
-    'electric-furnace': { name: 'Four électrique', icon: '🔥', cats: ['smelting'], speed: 2, power: 180, fuel: 0, unlock: 'advanced-material-processing-2', cost: { 'steel-plate': 10, 'advanced-circuit': 5, 'stone-brick': 10 } },
+    'electric-furnace': { name: 'Four électrique', icon: '🔥', cats: ['smelting'], speed: 2, power: 180, fuel: 0, prod: 0.10, unlock: 'advanced-material-processing-2', cost: { 'steel-plate': 10, 'advanced-circuit': 5, 'stone-brick': 10 } },
 
     'assembling-machine-1': { name: 'Assembleur Mk1', icon: '🏭', cats: ['crafting', 'science'], speed: 0.5, power: 0, fuel: 0, cost: { 'iron-gear': 9, 'iron-plate': 5, 'electronic-circuit': 3 } },
-    'assembling-machine-2': { name: 'Assembleur Mk2', icon: '🏭', cats: ['crafting', 'science'], speed: 0.75, power: 150, fuel: 0, unlock: 'automation-2', cost: { 'steel-plate': 2, 'iron-gear': 5, 'electronic-circuit': 3 } },
-    'assembling-machine-3': { name: 'Assembleur Mk3', icon: '🏭', cats: ['crafting', 'science'], speed: 1.25, power: 375, fuel: 0, unlock: 'automation-3', cost: { 'steel-plate': 5, 'advanced-circuit': 5, 'electronic-circuit': 10 } },
+    'assembling-machine-2': { name: 'Assembleur Mk2', icon: '🏭', cats: ['crafting', 'science'], speed: 0.75, power: 150, fuel: 0, prod: 0.10, unlock: 'automation-2', cost: { 'steel-plate': 2, 'iron-gear': 5, 'electronic-circuit': 3 } },
+    'assembling-machine-3': { name: 'Assembleur Mk3', icon: '🏭', cats: ['crafting', 'science'], speed: 1.25, power: 375, fuel: 0, prod: 0.25, unlock: 'automation-3', cost: { 'steel-plate': 5, 'advanced-circuit': 5, 'electronic-circuit': 10 } },
 
     'chemical-plant': { name: 'Usine chimique', icon: '⚗️', cats: ['chemistry'], speed: 1, power: 210, fuel: 0, unlock: 'oil-processing', cost: { 'steel-plate': 5, 'iron-gear': 5, 'electronic-circuit': 5, 'pipe': 5 } },
     'oil-refinery': { name: 'Raffinerie', icon: '🏗️', cats: ['oil-refining'], speed: 1, power: 420, fuel: 0, unlock: 'oil-processing', cost: { 'steel-plate': 15, 'iron-gear': 10, 'electronic-circuit': 10, 'pipe': 10, 'stone-brick': 10 } },
