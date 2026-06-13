@@ -141,6 +141,16 @@ body {
 .energy-summary b { color: var(--accent-2); }
 .bad { color: var(--red); }
 
+/* Détail de consommation */
+.energy-detail { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 6px; }
+.detail-title { font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+.energy-line { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; padding: 1px 0; gap: 8px; }
+.energy-line span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.energy-line b { color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.energy-line .dim { color: var(--accent-2); }
+.energy-line.total { border-top: 1px dashed var(--border); margin-top: 3px; padding-top: 3px; }
+.energy-line.total span, .energy-line.total b { color: var(--accent-2); font-weight: 600; }
+
 /* --- Recherche --- */
 .tech { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-bottom: 7px; }
 .tech.afford { border-color: #4a5a3a; }
@@ -152,6 +162,11 @@ body {
 .done-techs summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .done-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .done-tag { font-size: 11px; background: #2a3a2a; color: var(--green); border: 1px solid #3a4a3a; border-radius: 4px; padding: 2px 6px; }
+
+/* --- Modules --- */
+.module-stat { font-size: 13px; margin: 4px 0; }
+.module-stat b { color: var(--accent-2); }
+.module-stat b.pos { color: var(--green); }
 
 /* --- Fusée --- */
 .rocket-count { font-size: 16px; font-weight: 700; margin-bottom: 10px; text-align: center; }

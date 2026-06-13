@@ -74,5 +74,15 @@ Il n'installe **aucun Node** sur le runner : tout passe par `docker compose run 
 donc le comportement est identique à `just ci` en local. Les codes de sortie se
 propagent (un test en échec fait échouer le job).
 
-### Équilibrage
-Les nombres (coûts, temps, débits, `ROCKET_PARTS_NEEDED`) sont centralisés dans `data.js` (objet `CONFIG` et tableaux). Faciles à ajuster pour rendre la partie plus longue ou plus courte.
+### Équilibrage / durée de partie
+Les nombres sont centralisés dans `data.js` (objet `CONFIG` et tableaux). Deux leviers principaux pour la **durée** :
+- `CONFIG.SCIENCE_COST_MULT` (défaut **3**) : multiplie le coût en science de **toutes** les recherches. Monter = partie plus longue.
+- `CONFIG.ROCKET_PARTS_NEEDED` (défaut **300**) : nombre de pièces de fusée à assembler pour gagner.
+
+### Contenu
+Chaîne complète du minerai à la fusée, avec notamment :
+- **5 paliers de science** : automatisation (rouge) → logistique (verte) → chimie (bleue) → utilitaire (jaune) → **production (violette)**.
+- **Énergie** : charbon (vapeur) → solaire → **nucléaire** (uranium → centrifugeuse → cellules → réacteur 40 MW), avec **retraitement** des cellules usées en U-238. La vapeur/le réacteur ne consomment du carburant que pour l'électricité réellement utilisée.
+- **Modules de productivité** : chaque module installé augmente la production de toutes les usines (panneau dédié).
+- **Béton** (pierre/fer/eau), requis pour le silo, le réacteur et la centrifugeuse.
+- Le panneau Énergie affiche le **détail de consommation** (électrique et carburant) par type de machine.

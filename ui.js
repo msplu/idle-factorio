@@ -41,6 +41,8 @@
     research: document.getElementById('research'),
     energy: document.getElementById('energy'),
     rocket: document.getElementById('rocket'),
+    modules: document.getElementById('modules'),
+    modulesPanel: document.getElementById('modules-panel'),
     powerbar: document.getElementById('powerbar'),
     rocketbar: document.getElementById('rocketbar'),
     playtime: document.getElementById('playtime'),
@@ -80,7 +82,7 @@
 
   /* --- Panneau MINAGE MANUEL ------------------------------------------- */
   function renderMining() {
-    const mineRecipes = RECIPES.filter(r => r.cat === 'mining' && Game.recipeUnlocked(r));
+    const mineRecipes = RECIPES.filter(r => r.cat === 'mining' && r.hand && Game.recipeUnlocked(r));
     let html = '<div class="hint">Clique pour récolter à la main</div><div class="mine-grid">';
     for (const r of mineRecipes) {
       const outId = Object.keys(r.out)[0];
@@ -209,7 +211,8 @@
       const gen = GENERATORS[g];
       const count = Game.state.generators[g] || 0;
       const afford = Game.canAfford(gen.cost);
-      const fuelInfo = gen.fuel > 0 ? ` — ⚫${gen.fuel}/s` : ' — gratuit';
+      const fuelIcon = gen.fuelItem && ITEMS[gen.fuelItem] ? ITEMS[gen.fuelItem].icon : '⚫';
+      const fuelInfo = gen.fuel > 0 ? ` — ${fuelIcon}${gen.fuel}/s` : ' — gratuit';
       html += `<div class="recipe">
         <div class="recipe-head">
           <span class="recipe-name">${gen.icon} ${gen.name} <span class="owned-machine">×${count}</span></span>
@@ -222,6 +225,48 @@
         </div>
       </div>`;
     }
+
+    // Détail de consommation, agrégé par type de machine (machines actives)
+    const elec = {}, coal = {};
+    for (const recipeId in Game.state.producers) {
+      const r = Game.RECIPE_BY_ID[recipeId];
+      if (!r) continue;
+      const active = Game.recipeHasInputs(r);
+      const byM = Game.state.producers[recipeId];
+      for (const mid in byM) {
+        const c = byM[mid]; if (c <= 0) continue;
+        const m = MACHINES[mid];
+        if (m.power > 0) { (elec[mid] = elec[mid] || { c: 0, v: 0 }).c += c; if (active) elec[mid].v += m.power * c; }
+        if (m.fuel > 0) { (coal[mid] = coal[mid] || { c: 0, v: 0 }).c += c; if (active) coal[mid].v += m.fuel * c; }
+      }
+    }
+    // La vapeur ne brûle du charbon que pour l'électricité réellement fournie
+    const steamCoal = e.steamOutput * (GENERATORS['steam-engine'].fuel / GENERATORS['steam-engine'].output);
+
+    const elecLines = Object.entries(elec).filter(([, d]) => d.v > 0.05).sort((a, b) => b[1].v - a[1].v);
+    if (elecLines.length) {
+      html += `<div class="energy-detail"><div class="detail-title">⚡ Détail consommation électrique</div>`;
+      for (const [mid, d] of elecLines) {
+        html += `<div class="energy-line"><span>${MACHINES[mid].icon} ${MACHINES[mid].name} <span class="dim">×${d.c}</span></span><b>${fmt(d.v)} kW</b></div>`;
+      }
+      html += `<div class="energy-line total"><span>Total</span><b>${fmt(e.demand)} kW</b></div></div>`;
+    }
+
+    const coalLines = Object.entries(coal).filter(([, d]) => d.v > 0.001).sort((a, b) => b[1].v - a[1].v);
+    if (coalLines.length || steamCoal > 0.001) {
+      html += `<div class="energy-detail"><div class="detail-title">⚫ Détail consommation charbon</div>`;
+      for (const [mid, d] of coalLines) {
+        html += `<div class="energy-line"><span>${MACHINES[mid].icon} ${MACHINES[mid].name} <span class="dim">×${d.c}</span></span><b>${d.v.toFixed(1)}/s</b></div>`;
+      }
+      if (steamCoal > 0.001) html += `<div class="energy-line"><span>♨️ Machine à vapeur <span class="dim">(électricité)</span></span><b>${steamCoal.toFixed(1)}/s</b></div>`;
+      html += `<div class="energy-line total"><span>Total</span><b>${e.coalDemand.toFixed(1)}/s</b></div></div>`;
+    }
+
+    if (e.uraniumBurn > 0.0001) {
+      html += `<div class="energy-detail"><div class="detail-title">☢️ Combustible nucléaire</div>
+        <div class="energy-line"><span>☢️ Réacteur nucléaire</span><b>${ITEMS['uranium-fuel-cell'].icon} ${e.uraniumBurn.toFixed(3)}/s</b></div></div>`;
+    }
+
     setHTML(el.energy, html);
   }
 
@@ -275,6 +320,24 @@
       </button>`);
   }
 
+  /* --- Panneau MODULES -------------------------------------------------- */
+  function renderModules() {
+    if (!Game.isTechDone('modules')) { el.modulesPanel.style.display = 'none'; return; }
+    el.modulesPanel.style.display = '';
+    const installed = Game.state.prodModules || 0;
+    const bonus = (installed * (CONFIG.MODULE_PRODUCTIVITY || 0) * 100);
+    const have = Math.floor(Game.stockOf('productivity-module'));
+    const can1 = have >= 1, can10 = have >= 10;
+    setHTML(el.modules, `
+      <div class="hint">Chaque module installé augmente la production de <b>toutes les usines</b> (fonderie, fabrication, chimie, nucléaire, fusée).</div>
+      <div class="module-stat">Installés : <b>${fmt(installed)}</b> &nbsp;→&nbsp; bonus <b class="pos">+${bonus.toFixed(0)} %</b></div>
+      <div class="module-stat">En stock : ${ITEMS['productivity-module'].icon} <b>${fmt(have)}</b></div>
+      <div class="recipe-actions">
+        <button class="build-btn ${can1 ? '' : 'disabled'}" data-action="install-module" data-n="1">Installer 1</button>
+        <button class="build-btn ${can10 ? '' : 'disabled'}" data-action="install-module" data-n="10">Installer 10</button>
+      </div>`);
+  }
+
   /* --- Barre du haut ---------------------------------------------------- */
   function renderTopbar() {
     const t = Math.floor(Game.state.playTime);
@@ -301,6 +364,7 @@
       case 'build-gen': Game.buildGenerator(btn.dataset.gen); break;
       case 'remove-gen': Game.removeGenerator(btn.dataset.gen); break;
       case 'research': Game.research(btn.dataset.id); break;
+      case 'install-module': Game.installModule(parseInt(btn.dataset.n, 10) || 1); break;
       case 'launch':
         if (Game.launchRocket()) showVictory();
         break;
@@ -337,6 +401,7 @@
     renderEnergy();
     renderResearch();
     renderRocket();
+    renderModules();
     renderTopbar();
     if (Game.state.won && !el.victory.classList.contains('show') && !victoryShownOnce) {
       victoryShownOnce = true;

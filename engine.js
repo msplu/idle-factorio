@@ -11,6 +11,9 @@ const Game = (() => {
   const TECH_BY_ID = Object.fromEntries(TECHS.map(t => [t.id, t]));
   // Recettes triées par ordre de traitement (chaînes de production cohérentes)
   const RECIPES_ORDERED = [...RECIPES].sort((a, b) => a.order - b.order);
+  // Catégories bénéficiant du bonus des modules de productivité (les usines de
+  // transformation ; pas l'extraction brute ni la science).
+  const PROD_CATS = new Set(['smelting', 'crafting', 'chemistry', 'oil-refining', 'centrifuging', 'rocket-building']);
 
   /* --- État ------------------------------------------------------------- */
   let state = null;
@@ -24,6 +27,7 @@ const Game = (() => {
       techs: {},                 // techId → niveau (>=1 = acquis)
       clickPower: 1,
       speedMult: 1,
+      prodModules: 0,            // modules de productivité installés (bonus global)
       playTime: 0,               // secondes de jeu cumulées
       lastSeen: nowSec(),        // pour la progression hors-ligne
       won: false,
@@ -47,13 +51,13 @@ const Game = (() => {
     return t.prereq.every(p => isTechDone(p));
   }
 
-  // Coût d'une recherche (gère les répétables dont le coût croît)
+  // Coût d'une recherche (gère le multiplicateur global et les répétables)
   function techCost(t) {
     const lvl = state.techs[t.id] || 0;
-    if (!t.repeatable) return t.cost;
-    const mult = Math.pow(t.costMult, lvl);
+    const global = CONFIG.SCIENCE_COST_MULT || 1;
+    const rep = t.repeatable ? Math.pow(t.costMult, lvl) : 1;
     const c = {};
-    for (const k in t.cost) c[k] = Math.ceil(t.cost[k] * mult);
+    for (const k in t.cost) c[k] = Math.ceil(t.cost[k] * global * rep);
     return c;
   }
 
@@ -139,6 +143,16 @@ const Game = (() => {
     return true;
   }
 
+  // Installe des modules de productivité (consomme les objets, bonus permanent)
+  function installModule(n = 1) {
+    let done = 0;
+    for (let i = 0; i < n; i++) {
+      if (stockOf('productivity-module') >= 1) { state.stock['productivity-module'] -= 1; state.prodModules++; done++; }
+      else break;
+    }
+    return done;
+  }
+
   function launchRocket() {
     if (stockOf('rocket-part') >= CONFIG.ROCKET_PARTS_NEEDED && !state.launched) {
       state.stock['rocket-part'] -= CONFIG.ROCKET_PARTS_NEEDED;
@@ -149,9 +163,10 @@ const Game = (() => {
     return false;
   }
 
-  /* --- Énergie : calcul du bilan (charbon + électricité) ---------------- */
-  // Renvoie { coalRatio, powerRatio, supply, capacity, demand, coalDemand,
-  //           steamCount, steamMax, solarOutput, coalShort }
+  /* --- Énergie : calcul du bilan (carburants + électricité) ------------- */
+  // Modèle : le solaire (gratuit) couvre la demande en premier, puis le nucléaire
+  // (uranium), puis la vapeur (charbon). Chaque générateur à carburant ne brûle
+  // que pour l'électricité réellement fournie — plus de gaspillage à vide.
   function computeEnergy(dt) {
     // 1) Charbon consommé par les machines à charbon ACTIVES (fours, foreuses)
     let burnerCoal = 0;
@@ -167,28 +182,39 @@ const Game = (() => {
       if (m.power > 0 && recipeHasInputs(r)) demand += m.power * count;
     });
 
-    // 3) Solaire gratuit ; la vapeur ne fournit (et ne brûle du charbon) que
-    //    pour l'électricité réellement demandée — plus de gaspillage à vide.
+    // 3) Dispatch : solaire → nucléaire → vapeur
     const solarOutput = (state.generators['solar-panel'] || 0) * GENERATORS['solar-panel'].output;
-    const steamCount = state.generators['steam-engine'] || 0;
-    const steam = GENERATORS['steam-engine'];
-    const steamMax = steamCount * steam.output;
-    const desiredSteam = Math.max(0, Math.min(steamMax, demand - solarOutput));
-    const steamCoal = desiredSteam * (steam.fuel / steam.output); // charbon/kW × kW
+    let remaining = Math.max(0, demand - solarOutput);
 
-    // 4) Charbon partagé (carburant des fours + des chaudières) → ratio commun
-    const coalDemand = burnerCoal + steamCoal;
-    const coalNeeded = coalDemand * dt;
-    const coalRatio = coalDemand > 0 ? Math.min(1, stockOf('coal') / Math.max(coalNeeded, 1e-9)) : 1;
+    // Nucléaire (carburant : cellules d'uranium)
+    const nuke = GENERATORS['nuclear-reactor'];
+    const nukeCap = (state.generators['nuclear-reactor'] || 0) * nuke.output;
+    const nukeWant = Math.min(nukeCap, remaining);
+    const uraniumPerKw = nuke.fuel / nuke.output;
+    const uraniumNeed = nukeWant * uraniumPerKw;
+    const uraniumRatio = uraniumNeed > 0 ? Math.min(1, stockOf('uranium-fuel-cell') / Math.max(uraniumNeed * dt, 1e-9)) : 1;
+    const nuclearOutput = nukeWant * uraniumRatio;
+    const uraniumBurn = nuclearOutput * uraniumPerKw;   // cellules/s
+    remaining -= nuclearOutput;
+
+    // Vapeur (carburant : charbon, partagé avec les fours)
+    const steam = GENERATORS['steam-engine'];
+    const steamCap = (state.generators['steam-engine'] || 0) * steam.output;
+    const steamWant = Math.min(steamCap, remaining);
+    const steamCoalNeed = steamWant * (steam.fuel / steam.output);
+    const coalDemand = burnerCoal + steamCoalNeed;
+    const coalRatio = coalDemand > 0 ? Math.min(1, stockOf('coal') / Math.max(coalDemand * dt, 1e-9)) : 1;
+    const steamOutput = steamWant * coalRatio;
+    const coalBurn = coalDemand * coalRatio;            // charbon/s
     const coalShort = coalRatio < 0.999 && coalDemand > 0;
 
-    // 5) Électricité effectivement fournie (la vapeur baisse si le charbon manque)
-    const steamOutput = desiredSteam * coalRatio;
-    const supply = solarOutput + steamOutput;
-    const capacity = solarOutput + steamMax;            // potentiel max (charbon illimité)
+    // 4) Bilan
+    const supply = solarOutput + nuclearOutput + steamOutput;
+    const capacity = solarOutput + nukeCap + steamCap;  // potentiel max (carburant illimité)
     const powerRatio = demand > 0 ? Math.min(1, supply / demand) : 1;
 
-    return { coalRatio, powerRatio, supply, capacity, demand, coalDemand, steamCount, steamMax, solarOutput, steamOutput, coalShort };
+    return { coalRatio, powerRatio, supply, capacity, demand, coalDemand, coalBurn, uraniumBurn,
+             solarOutput, steamOutput, nuclearOutput, steamCap, nukeCap, coalShort };
   }
 
   // Une recette est « active » si toutes ses entrées sont disponibles (>0)
@@ -220,11 +246,19 @@ const Game = (() => {
     state.playTime += dt;
     const energy = computeEnergy(dt);
 
-    // Consommation de charbon comme carburant (machines + vapeur)
-    if (energy.coalDemand > 0) {
-      const burned = energy.coalDemand * dt * energy.coalRatio;
+    // Consommation des carburants : charbon (fours + vapeur) et uranium (nucléaire)
+    if (energy.coalBurn > 0) {
+      const burned = energy.coalBurn * dt;
       state.stock['coal'] = (state.stock['coal'] || 0) - burned;
       flowAccum['coal'] = (flowAccum['coal'] || 0) - burned;
+    }
+    if (energy.uraniumBurn > 0) {
+      const burned = energy.uraniumBurn * dt;
+      state.stock['uranium-fuel-cell'] = (state.stock['uranium-fuel-cell'] || 0) - burned;
+      flowAccum['uranium-fuel-cell'] = (flowAccum['uranium-fuel-cell'] || 0) - burned;
+      // chaque cellule consommée ressort « usée » (retraitable en U-238)
+      addStock('used-uranium-fuel-cell', burned);
+      flowAccum['used-uranium-fuel-cell'] = (flowAccum['used-uranium-fuel-cell'] || 0) + burned;
     }
 
     // Production des machines, dans l'ordre des chaînes
@@ -252,13 +286,17 @@ const Game = (() => {
         if (crafts <= 0) continue;
 
         recipeAccum[r.id] = (recipeAccum[r.id] || 0) + crafts; // production brute réelle
+        // Bonus des modules de productivité : sortie supplémentaire gratuite sur
+        // les recettes de transformation (entrées inchangées).
+        const prodMult = PROD_CATS.has(r.cat) ? (1 + state.prodModules * (CONFIG.MODULE_PRODUCTIVITY || 0)) : 1;
         for (const id in r.in) {
           state.stock[id] -= r.in[id] * crafts;
           flowAccum[id] = (flowAccum[id] || 0) - r.in[id] * crafts;
         }
         for (const id in r.out) {
-          addStock(id, r.out[id] * crafts);
-          flowAccum[id] = (flowAccum[id] || 0) + r.out[id] * crafts;
+          const made = r.out[id] * crafts * prodMult;
+          addStock(id, made);
+          flowAccum[id] = (flowAccum[id] || 0) + made;
         }
       }
     }
@@ -358,6 +396,6 @@ const Game = (() => {
     getEnergy: (dt) => computeEnergy(dt),
     // actions
     manualMine, handCraft, buildMachine, removeMachine,
-    buildGenerator, removeGenerator, research, launchRocket,
+    buildGenerator, removeGenerator, research, launchRocket, installModule,
   };
 })();

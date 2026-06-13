@@ -12,7 +12,9 @@ const GAME_DATA = (() => {
     UI_MS: 200,              // rafraîchissement de l'interface
     SAVE_MS: 15000,          // sauvegarde automatique
     OFFLINE_CAP_HOURS: 8,    // progression hors-ligne plafonnée
-    ROCKET_PARTS_NEEDED: 100,// pièces de fusée pour gagner
+    ROCKET_PARTS_NEEDED: 1000,// pièces de fusée pour gagner (rallongé)
+    SCIENCE_COST_MULT: 3,    // multiplicateur global du coût des recherches (rallonge la partie)
+    MODULE_PRODUCTIVITY: 0.01, // bonus de production par module de productivité installé
     STEAM_OUTPUT: 900,       // kW par machine à vapeur
     SOLAR_OUTPUT: 60,        // kW par panneau solaire
     SAVE_KEY: 'idle-factorio-save-v1',
@@ -56,6 +58,16 @@ const GAME_DATA = (() => {
     'rocket-control-unit':   { name: 'Unité de contrôle', icon: '🛰️' },
     'rocket-fuel':     { name: 'Carburant de fusée',   icon: '⛽' },
     'rocket-part':     { name: 'Pièce de fusée',       icon: '🚀' },
+    // Nucléaire & matériaux lourds
+    'concrete':        { name: 'Béton',                icon: '🔲' },
+    'uranium-ore':     { name: "Minerai d'uranium",    icon: '☢️' },
+    'uranium-235':     { name: 'Uranium 235',          icon: '💎' },
+    'uranium-238':     { name: 'Uranium 238',          icon: '🔘' },
+    'uranium-fuel-cell': { name: 'Cellule de combustible', icon: '🧨' },
+    'used-uranium-fuel-cell': { name: 'Cellule usée', icon: '🪫' },
+    'productivity-module': { name: 'Module de productivité', icon: '🧩' },
+    // Sciences (suite)
+    'production-science': { name: 'Science : production', icon: '🟣' },
     // Sciences
     'automation-science': { name: 'Science : automatisation', icon: '🔴' },
     'logistic-science':   { name: 'Science : logistique',     icon: '🟢' },
@@ -69,6 +81,7 @@ const GAME_DATA = (() => {
     { id: 'smelting',   name: '🔥 Fonderie',      cats: ['smelting'] },
     { id: 'chem',       name: '🧪 Pétrochimie',   cats: ['oil-refining', 'chemistry'] },
     { id: 'crafting',   name: '🛠️ Fabrication',   cats: ['crafting'] },
+    { id: 'nuclear',    name: '☢️ Nucléaire',     cats: ['centrifuging'] },
     { id: 'science',    name: '🔬 Science',       cats: ['science'] },
     { id: 'rocket',     name: '🚀 Fusée',         cats: ['rocket-building'] },
   ];
@@ -101,17 +114,24 @@ const GAME_DATA = (() => {
     { id: 'chem-solid-fuel',    name: 'Combustible solide',    cat: 'chemistry', order: 3, time: 2, hand: false, unlock: 'flammables',       in: { 'petroleum-gas': 2 }, out: { 'solid-fuel': 1 } },
     { id: 'chem-battery',       name: 'Fabriquer une batterie',cat: 'chemistry', order: 3, time: 4, hand: false, unlock: 'batteries',        in: { 'sulfuric-acid': 2, 'iron-plate': 1, 'copper-plate': 1 }, out: { 'battery': 1 } },
 
+    // Nucléaire (order 3-5) — l'extraction d'uranium consomme de l'acide sulfurique
+    { id: 'mine-uranium-ore',   name: "Miner de l'uranium",  cat: 'mining', order: 3, time: 2, hand: false, unlock: 'uranium-processing', in: { 'sulfuric-acid': 1 }, out: { 'uranium-ore': 1 } },
+    { id: 'centrifuge-uranium', name: "Centrifuger l'uranium", cat: 'centrifuging', order: 4, time: 12, hand: false, unlock: 'uranium-processing', in: { 'uranium-ore': 10 }, out: { 'uranium-235': 1, 'uranium-238': 9 } },
+    { id: 'reprocess-fuel',     name: 'Retraiter le combustible', cat: 'centrifuging', order: 4, time: 6, hand: false, unlock: 'fuel-reprocessing', in: { 'used-uranium-fuel-cell': 5 }, out: { 'uranium-238': 3 } },
+
     // Fabrication de base (order 4)
     { id: 'craft-iron-gear',         name: 'Engrenage',       cat: 'crafting', order: 4, time: 0.5, hand: true, in: { 'iron-plate': 2 }, out: { 'iron-gear': 1 } },
     { id: 'craft-copper-cable',      name: 'Fil de cuivre',   cat: 'crafting', order: 4, time: 0.5, hand: true, in: { 'copper-plate': 1 }, out: { 'copper-cable': 2 } },
     { id: 'craft-pipe',              name: 'Tuyau',           cat: 'crafting', order: 4, time: 0.5, hand: true, in: { 'iron-plate': 1 }, out: { 'pipe': 1 } },
     { id: 'craft-electronic-circuit',name: 'Circuit électronique', cat: 'crafting', order: 4, time: 0.5, hand: true, in: { 'iron-plate': 1, 'copper-cable': 3 }, out: { 'electronic-circuit': 1 } },
+    { id: 'make-concrete',           name: 'Béton',                cat: 'crafting', order: 4, time: 10,  hand: true, unlock: 'concrete', in: { 'stone-brick': 5, 'iron-ore': 1, 'water': 10 }, out: { 'concrete': 10 } },
 
     // Fabrication intermédiaire (order 5)
     { id: 'craft-inserter',       name: 'Bras articulé',  cat: 'crafting', order: 5, time: 0.5, hand: true, unlock: 'logistics',            in: { 'iron-plate': 1, 'iron-gear': 1, 'electronic-circuit': 1 }, out: { 'inserter': 1 } },
     { id: 'craft-transport-belt', name: 'Convoyeur',      cat: 'crafting', order: 5, time: 0.5, hand: true, unlock: 'logistics',            in: { 'iron-plate': 1, 'iron-gear': 1 }, out: { 'transport-belt': 2 } },
     { id: 'craft-advanced-circuit',name: 'Circuit avancé',cat: 'crafting', order: 5, time: 6,   hand: true, unlock: 'advanced-electronics', in: { 'plastic-bar': 2, 'copper-cable': 4, 'electronic-circuit': 2 }, out: { 'advanced-circuit': 1 } },
     { id: 'craft-engine-unit',    name: 'Moteur',         cat: 'crafting', order: 5, time: 10,  hand: true, unlock: 'engine',               in: { 'steel-plate': 1, 'iron-gear': 1, 'pipe': 2 }, out: { 'engine-unit': 1 } },
+    { id: 'craft-uranium-fuel-cell', name: 'Cellule de combustible', cat: 'crafting', order: 5, time: 10, hand: true, unlock: 'nuclear-power', in: { 'uranium-235': 1, 'uranium-238': 19, 'iron-plate': 10 }, out: { 'uranium-fuel-cell': 10 } },
 
     // Fabrication avancée (order 6)
     { id: 'craft-processing-unit',      name: 'Processeur',         cat: 'crafting', order: 6, time: 10, hand: true, unlock: 'advanced-electronics-2', in: { 'electronic-circuit': 20, 'advanced-circuit': 2, 'sulfuric-acid': 5 }, out: { 'processing-unit': 1 } },
@@ -119,12 +139,14 @@ const GAME_DATA = (() => {
     { id: 'craft-low-density-structure',name: 'Structure légère',   cat: 'crafting', order: 6, time: 20, hand: true, unlock: 'low-density-structure',   in: { 'steel-plate': 2, 'copper-plate': 20, 'plastic-bar': 5 }, out: { 'low-density-structure': 1 } },
     { id: 'craft-rocket-control-unit',  name: 'Unité de contrôle',  cat: 'crafting', order: 6, time: 30, hand: true, unlock: 'rocket-control-unit',     in: { 'processing-unit': 1, 'electronic-circuit': 1 }, out: { 'rocket-control-unit': 1 } },
     { id: 'craft-rocket-fuel',          name: 'Carburant de fusée', cat: 'crafting', order: 6, time: 30, hand: true, unlock: 'rocket-fuel',             in: { 'solid-fuel': 10 }, out: { 'rocket-fuel': 1 } },
+    { id: 'craft-productivity-module',  name: 'Module de productivité', cat: 'crafting', order: 6, time: 15, hand: true, unlock: 'modules', in: { 'advanced-circuit': 5, 'electronic-circuit': 5 }, out: { 'productivity-module': 1 } },
 
     // Sciences (order 7) — fabriquées en assembleur
     { id: 'craft-automation-science', name: 'Science : automatisation', cat: 'science', order: 7, time: 5,  hand: true, in: { 'copper-plate': 1, 'iron-gear': 1 }, out: { 'automation-science': 1 } },
     { id: 'craft-logistic-science',   name: 'Science : logistique',     cat: 'science', order: 7, time: 6,  hand: true, unlock: 'logistics',        in: { 'inserter': 1, 'transport-belt': 1 }, out: { 'logistic-science': 1 } },
     { id: 'craft-chemical-science',   name: 'Science : chimie',         cat: 'science', order: 7, time: 24, hand: true, unlock: 'chemical-science', in: { 'sulfur': 1, 'advanced-circuit': 1, 'engine-unit': 1 }, out: { 'chemical-science': 1 } },
     { id: 'craft-utility-science',    name: 'Science : utilitaire',     cat: 'science', order: 7, time: 21, hand: true, unlock: 'utility-science',  in: { 'processing-unit': 1, 'low-density-structure': 1, 'battery': 1 }, out: { 'utility-science': 1 } },
+    { id: 'craft-production-science', name: 'Science : production',      cat: 'science', order: 7, time: 21, hand: true, unlock: 'production-science', in: { 'electric-engine-unit': 1, 'advanced-circuit': 2, 'concrete': 5 }, out: { 'production-science': 1 } },
 
     // Fusée (order 8)
     { id: 'craft-rocket-part', name: 'Pièce de fusée', cat: 'rocket-building', order: 8, time: 3, hand: false, unlock: 'rocket-silo', in: { 'low-density-structure': 1, 'rocket-control-unit': 1, 'rocket-fuel': 1 }, out: { 'rocket-part': 1 } },
@@ -152,13 +174,17 @@ const GAME_DATA = (() => {
     'pumpjack': { name: 'Pompe à pétrole', icon: '🛢️', cats: ['oil-extraction'], speed: 1, power: 90, fuel: 0, unlock: 'oil-processing', cost: { 'steel-plate': 5, 'iron-gear': 10, 'electronic-circuit': 5, 'pipe': 10 } },
     'offshore-pump': { name: 'Pompe à eau', icon: '💧', cats: ['water'], speed: 1, power: 0, fuel: 0, unlock: 'oil-processing', cost: { 'iron-gear': 1, 'pipe': 1, 'electronic-circuit': 2 } },
 
-    'rocket-silo': { name: 'Silo à fusée', icon: '🚀', cats: ['rocket-building'], speed: 1, power: 2000, fuel: 0, unlock: 'rocket-silo', cost: { 'steel-plate': 200, 'processing-unit': 50, 'electronic-circuit': 200, 'pipe': 50 } },
+    'centrifuge': { name: 'Centrifugeuse', icon: '🌀', cats: ['centrifuging'], speed: 1, power: 350, fuel: 0, unlock: 'uranium-processing', cost: { 'steel-plate': 10, 'advanced-circuit': 10, 'iron-gear': 10, 'concrete': 50 } },
+
+    'rocket-silo': { name: 'Silo à fusée', icon: '🚀', cats: ['rocket-building'], speed: 1, power: 2000, fuel: 0, unlock: 'rocket-silo', cost: { 'steel-plate': 200, 'processing-unit': 50, 'electronic-circuit': 200, 'pipe': 50, 'concrete': 1000 } },
   };
 
   /* --- Générateurs d'énergie ------------------------------------------- */
+  // fuelItem : objet consommé comme carburant (sinon pas de carburant)
   const GENERATORS = {
-    'steam-engine': { name: 'Machine à vapeur', icon: '♨️', output: CONFIG.STEAM_OUTPUT, fuel: 0.5, unlock: 'steam-power', cost: { 'iron-gear': 8, 'iron-plate': 10, 'pipe': 5 } },
+    'steam-engine': { name: 'Machine à vapeur', icon: '♨️', output: CONFIG.STEAM_OUTPUT, fuel: 0.5, fuelItem: 'coal', unlock: 'steam-power', cost: { 'iron-gear': 8, 'iron-plate': 10, 'pipe': 5 } },
     'solar-panel': { name: 'Panneau solaire', icon: '🔆', output: CONFIG.SOLAR_OUTPUT, fuel: 0, unlock: 'solar-energy', cost: { 'steel-plate': 5, 'copper-plate': 5, 'electronic-circuit': 15 } },
+    'nuclear-reactor': { name: 'Réacteur nucléaire', icon: '☢️', output: 40000, fuel: 0.005, fuelItem: 'uranium-fuel-cell', unlock: 'nuclear-power', cost: { 'concrete': 500, 'steel-plate': 500, 'advanced-circuit': 100, 'copper-plate': 300 } },
   };
 
   /* --- Recherches ------------------------------------------------------- */
@@ -187,7 +213,13 @@ const GAME_DATA = (() => {
     { id: 'rocket-fuel', name: 'Carburant de fusée', cost: { 'chemical-science': 75, 'utility-science': 50 }, prereq: ['flammables', 'utility-science'], recipes: ['craft-rocket-fuel'], desc: 'Carburant pour la fusée.' },
     { id: 'rocket-control-unit', name: 'Unité de contrôle', cost: { 'utility-science': 75 }, prereq: ['advanced-electronics-2', 'utility-science'], recipes: ['craft-rocket-control-unit'], desc: 'Cerveau de la fusée.' },
     { id: 'automation-3', name: 'Automatisation 3', cost: { 'chemical-science': 150, 'utility-science': 75 }, prereq: ['automation-2', 'utility-science'], machines: ['assembling-machine-3'], desc: 'Assembleur Mk3, très rapide.' },
-    { id: 'rocket-silo', name: '🚀 Silo à fusée', cost: { 'utility-science': 100, 'chemical-science': 100 }, prereq: ['rocket-fuel', 'rocket-control-unit', 'low-density-structure', 'utility-science'], machines: ['rocket-silo'], recipes: ['craft-rocket-part'], desc: 'Construit le silo et permet d\'assembler la fusée. Objectif final !' },
+    { id: 'concrete', name: 'Béton', cost: { 'chemical-science': 50 }, prereq: ['advanced-material-processing', 'chemical-science'], recipes: ['make-concrete'], desc: 'Béton, indispensable aux structures lourdes (silo, réacteur).' },
+    { id: 'uranium-processing', name: "Traitement de l'uranium", cost: { 'chemical-science': 100, 'utility-science': 50 }, prereq: ['sulfur-processing', 'utility-science'], machines: ['centrifuge'], recipes: ['mine-uranium-ore', 'centrifuge-uranium'], desc: "Extraction (à l'acide) et centrifugation de l'uranium en U-235 / U-238." },
+    { id: 'nuclear-power', name: '☢️ Énergie nucléaire', cost: { 'utility-science': 100 }, prereq: ['uranium-processing', 'concrete'], generators: ['nuclear-reactor'], recipes: ['craft-uranium-fuel-cell'], desc: 'Réacteur nucléaire de 40 MW alimenté par cellules de combustible : électricité massive, sans charbon.' },
+    { id: 'production-science', name: 'Science de production', cost: { 'chemical-science': 100, 'utility-science': 75 }, prereq: ['utility-science', 'electric-engine', 'concrete'], recipes: ['craft-production-science'], desc: 'Débloque la science de production (violette), exigée pour le silo.' },
+    { id: 'modules', name: 'Modules de productivité', cost: { 'production-science': 50 }, prereq: ['advanced-electronics-2', 'production-science'], recipes: ['craft-productivity-module'], desc: 'Fabrique des modules de productivité : chaque module installé augmente la production de toutes les usines.' },
+    { id: 'fuel-reprocessing', name: 'Retraitement du combustible', cost: { 'production-science': 50 }, prereq: ['nuclear-power', 'production-science'], recipes: ['reprocess-fuel'], desc: "Recycle les cellules d'uranium usées en U-238." },
+    { id: 'rocket-silo', name: '🚀 Silo à fusée', cost: { 'utility-science': 100, 'chemical-science': 100, 'production-science': 100 }, prereq: ['rocket-fuel', 'rocket-control-unit', 'low-density-structure', 'utility-science', 'concrete', 'production-science'], machines: ['rocket-silo'], recipes: ['craft-rocket-part'], desc: 'Construit le silo et permet d\'assembler la fusée. Objectif final !' },
 
     // Recherches répétables
     { id: 'mining-tools', name: 'Outils de minage', repeatable: true, costMult: 1.8, cost: { 'automation-science': 10 }, prereq: [], effect: { clickPower: 1 }, desc: '+1 ressource par clic manuel (cumulable).' },

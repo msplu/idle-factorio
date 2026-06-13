@@ -202,5 +202,64 @@ if (S.won) {
   err('la fusée n\'a pas pu être assemblée');
 }
 
-console.log(`\n${errors === 0 && S.won ? '✅ Tous les tests passent.' : '❌ ' + (errors || 1) + ' problème(s).'}`);
-process.exit(errors === 0 && S.won ? 0 : 1);
+/* ---------- 4) Smoke test : énergie nucléaire ---------- */
+// Valide le modèle d'énergie multi-carburant : un réacteur alimente des machines
+// électriques en consommant de l'uranium, sans charbon ni solaire.
+console.log('\n== Énergie nucléaire ==');
+Game.hardReset();
+const NS = Game.state;
+TECHS.forEach(t => { if (!t.repeatable) NS.techs[t.id] = 1; });
+NS.producers['mine-iron-ore'] = { 'electric-mining-drill': 10 }; // 10 × 90 = 900 kW
+NS.generators['nuclear-reactor'] = 1;                            // capacité 40 MW
+NS.stock['uranium-fuel-cell'] = 100;
+const cellsBefore = Game.stockOf('uranium-fuel-cell');
+for (let i = 0; i < 60; i++) Game.tick(1);
+const en = Game.getEnergy(1);
+const ironMined = Game.stockOf('iron-ore');
+const cellsUsed = cellsBefore - Game.stockOf('uranium-fuel-cell');
+if (en.nuclearOutput > 0 && en.powerRatio > 0.99 && ironMined > 0 && cellsUsed > 0 && Game.stockOf('coal') === 0) {
+  console.log(`  ✅ Réacteur OK : ${Math.round(en.nuclearOutput)} kW fournis, ${cellsUsed.toFixed(3)} cellules brûlées, ${Math.floor(ironMined)} fer miné — 0 charbon.`);
+} else {
+  err(`nucléaire KO : nuclearOutput=${en.nuclearOutput} powerRatio=${en.powerRatio} iron=${ironMined} cellsUsed=${cellsUsed} coal=${Game.stockOf('coal')}`);
+}
+
+/* ---------- 5) Smoke test : modules de productivité ---------- */
+console.log('\n== Modules de productivité ==');
+Game.hardReset();
+const MS = Game.state;
+TECHS.forEach(t => { if (!t.repeatable) MS.techs[t.id] = 1; });
+MS.stock['productivity-module'] = 50;
+const installed = Game.installModule(50);
+MS.producers['craft-iron-gear'] = { 'assembling-machine-1': 1 }; // 1 craft/s, gratuit
+MS.stock['iron-plate'] = 1e6;
+const g0 = Game.stockOf('iron-gear');
+Game.tick(1);
+const made = Game.stockOf('iron-gear') - g0;          // base 1.0, attendu ~1.5 avec +50 %
+if (installed === 50 && Game.stockOf('productivity-module') === 0 && made > 1.4 && made < 1.6) {
+  console.log(`  ✅ 50 modules installés → +${(50 * GAME_DATA.CONFIG.MODULE_PRODUCTIVITY * 100).toFixed(0)} % : 1 craft/s donne ${made.toFixed(2)} engrenages (au lieu de 1).`);
+} else {
+  err(`modules KO : installed=${installed} stockModule=${Game.stockOf('productivity-module')} made=${made}`);
+}
+
+/* ---------- 6) Smoke test : retraitement du combustible ---------- */
+console.log('\n== Retraitement du combustible ==');
+Game.hardReset();
+const RS = Game.state;
+TECHS.forEach(t => { if (!t.repeatable) RS.techs[t.id] = 1; });
+RS.producers['reprocess-fuel'] = { 'centrifuge': 1 };
+RS.stock['used-uranium-fuel-cell'] = 1000;
+RS.generators['solar-panel'] = 100;                   // alimente la centrifugeuse
+const u0 = Game.stockOf('uranium-238');
+const c0 = Game.stockOf('used-uranium-fuel-cell');
+for (let i = 0; i < 60; i++) Game.tick(1);
+const u238 = Game.stockOf('uranium-238') - u0;
+const usedConsumed = c0 - Game.stockOf('used-uranium-fuel-cell');
+if (u238 > 0 && usedConsumed > 0) {
+  console.log(`  ✅ Retraitement OK : ${usedConsumed.toFixed(0)} cellules usées → ${u238.toFixed(0)} U-238.`);
+} else {
+  err(`retraitement KO : u238=${u238} usedConsumed=${usedConsumed}`);
+}
+
+const ok = errors === 0 && S.won;
+console.log(`\n${ok ? '✅ Tous les tests passent.' : '❌ ' + (errors || 1) + ' problème(s).'}`);
+process.exit(ok ? 0 : 1);
