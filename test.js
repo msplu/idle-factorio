@@ -149,18 +149,20 @@ for (const item in need) {
   totalMachines += count;
 }
 
-// Énergie : assez de panneaux solaires pour la demande électrique (sans charbon)
-const e = Game.getEnergy(1);
-const panels = Math.ceil(e.demand / GENERATORS['solar-panel'].output) + 2;
-S.generators['solar-panel'] = panels;
-console.log(`  Machines placées : ${totalMachines} | Demande : ${Math.round(e.demand)} kW | Panneaux solaires : ${panels}`);
-
 // On amorce les stocks d'INTERMÉDIAIRES (pas les composants finals) pour neutraliser
 // l'artefact d'allocation intra-tick. Les 3 composants finals et la pièce de fusée
 // restent à zéro : la fusée ne peut donc venir que de leur PRODUCTION réelle.
 const FINAL = new Set(['low-density-structure', 'rocket-control-unit', 'rocket-fuel', 'rocket-part']);
 const SEED = 1e6;
 for (const item in need) if (!FINAL.has(item)) S.stock[item] = SEED;
+
+// Énergie : on dimensionne le solaire APRÈS l'amorçage des stocks, pour que la
+// demande reflète TOUTES les machines en charge (et pas seulement les extracteurs
+// sans entrée). Valide aussi le nouveau modèle d'énergie sous charge complète.
+const e = Game.getEnergy(1);
+const panels = Math.ceil(e.demand / GENERATORS['solar-panel'].output) + 2;
+S.generators['solar-panel'] = panels;
+console.log(`  Machines placées : ${totalMachines} | Demande : ${Math.round(e.demand)} kW | Panneaux solaires : ${panels}`);
 
 // Simulation jusqu'à victoire (pas de 1 s)
 let ticks = 0;

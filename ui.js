@@ -120,7 +120,6 @@
   }
 
   function renderRecipeRow(r) {
-    const rates = Game.getRates();
     const machines = machinesForCat(r.cat);
     const producers = Game.state.producers[r.id] || {};
     const totalMachines = Object.values(producers).reduce((a, b) => a + b, 0);
@@ -129,7 +128,20 @@
     const inStr = Object.keys(r.in).length ? fmtFlow(r.in) + ' → ' : '';
     const outStr = fmtFlow(r.out);
     const mainOut = Object.keys(r.out)[0];
-    const rate = rates[mainOut] || 0;
+
+    // Débit = production RÉELLE de la recette (et non le flux net du stock, qui
+    // peut être ~0 si tout est consommé immédiatement). Si la recette a des
+    // machines mais ne produit rien, on indique ce qui la bloque.
+    const recipeRate = (Game.getRecipeRates()[r.id] || 0) * r.out[mainOut];
+    let rateHtml = '';
+    if (recipeRate > 0.05) {
+      rateHtml = `<span class="recipe-rate pos">${fmtRate(recipeRate)}</span>`;
+    } else if (totalMachines > 0) {
+      const missing = Object.keys(r.in).filter(id => Game.stockOf(id) <= 1e-4);
+      rateHtml = missing.length
+        ? `<span class="recipe-rate warn" title="En attente : ${missing.map(id => ITEMS[id].name).join(', ')}">⏳ ${missing.map(id => ITEMS[id].icon).join('')}</span>`
+        : `<span class="recipe-rate warn" title="Énergie insuffisante">⏳ ⚡</span>`;
+    }
 
     let owned = '';
     for (const mid in producers) {
@@ -154,11 +166,10 @@
       ? `<button class="hand-btn ${Game.canAfford(r.in) ? '' : 'disabled'}" data-action="hand" data-id="${r.id}" title="Fabriquer 1 à la main">✋</button>`
       : '';
 
-    const rateCls = rate > 0.05 ? 'pos' : '';
     return `<div class="recipe">
       <div class="recipe-head">
         <span class="recipe-name">${ITEMS[mainOut].icon} ${r.name}</span>
-        <span class="recipe-rate ${rateCls}">${rate > 0.05 ? fmtRate(rate) : ''}</span>
+        ${rateHtml}
       </div>
       <div class="recipe-flow">${inStr}${outStr} <span class="recipe-time">(${r.time}s)</span></div>
       <div class="recipe-actions">
@@ -180,14 +191,18 @@
     const gens = Object.keys(GENERATORS).filter(g => Game.generatorUnlocked(g));
     if (gens.length === 0 && e.demand === 0) { setHTML(el.energy, '<div class="hint">Recherche « Énergie vapeur » pour produire de l\'électricité.</div>'); return; }
 
-    const pct = e.demand > 0 ? Math.min(100, (e.supply / e.demand) * 100) : 100;
+    // La barre compare la CAPACITÉ (potentiel max) à la demande : verte si l'on
+    // peut tout alimenter, rouge si la capacité installée est insuffisante.
+    const pct = e.demand > 0 ? Math.min(100, (e.capacity / e.demand) * 100) : 100;
     el.powerbar.style.width = pct + '%';
     el.powerbar.className = 'bar-fill ' + (pct >= 99.5 ? 'good' : pct >= 50 ? 'warn' : 'bad');
 
+    const overload = e.demand > e.capacity + 1e-6;
     let html = `<div class="energy-summary">
-      <span>⚡ Production : <b>${fmt(e.supply)} kW</b></span>
+      <span>⚡ Capacité : <b>${fmt(e.capacity)} kW</b></span>
       <span>🔌 Consommation : <b>${fmt(e.demand)} kW</b></span>
-      ${e.demand > e.supply ? '<span class="bad">Surcharge ! Les machines ralentissent.</span>' : ''}
+      ${overload ? '<span class="bad">⚠️ Surcharge : ajoute des générateurs.</span>' : ''}
+      ${e.coalShort ? '<span class="bad">⚠️ Manque de charbon : mine-en à la main pour relancer !</span>' : ''}
     </div>`;
 
     for (const g of gens) {

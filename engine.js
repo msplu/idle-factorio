@@ -150,34 +150,45 @@ const Game = (() => {
   }
 
   /* --- Énergie : calcul du bilan (charbon + électricité) ---------------- */
-  // Renvoie { coalRatio, powerRatio, supply, demand, coalDemand, steamCount, solarOutput }
+  // Renvoie { coalRatio, powerRatio, supply, capacity, demand, coalDemand,
+  //           steamCount, steamMax, solarOutput, coalShort }
   function computeEnergy(dt) {
-    // 1) Demande de charbon = machines à charbon « actives » + machines à vapeur
-    let coalDemand = 0;
+    // 1) Charbon consommé par les machines à charbon ACTIVES (fours, foreuses)
+    let burnerCoal = 0;
     eachProducer((r, machineId, count) => {
       const m = MACHINES[machineId];
-      if (m.fuel > 0 && recipeHasInputs(r)) coalDemand += m.fuel * count;
+      if (m.fuel > 0 && recipeHasInputs(r)) burnerCoal += m.fuel * count;
     });
-    const steamCount = state.generators['steam-engine'] || 0;
-    coalDemand += steamCount * GENERATORS['steam-engine'].fuel;
 
-    const coalNeeded = coalDemand * dt;
-    const coalRatio = coalDemand > 0 ? Math.min(1, stockOf('coal') / Math.max(coalNeeded, 1e-9)) : 1;
-
-    // 2) Production d'électricité
-    const solarOutput = (state.generators['solar-panel'] || 0) * GENERATORS['solar-panel'].output;
-    const steamOutput = steamCount * GENERATORS['steam-engine'].output * coalRatio;
-    const supply = solarOutput + steamOutput;
-
-    // 3) Demande électrique = machines électriques actives
+    // 2) Demande électrique des machines actives
     let demand = 0;
     eachProducer((r, machineId, count) => {
       const m = MACHINES[machineId];
       if (m.power > 0 && recipeHasInputs(r)) demand += m.power * count;
     });
+
+    // 3) Solaire gratuit ; la vapeur ne fournit (et ne brûle du charbon) que
+    //    pour l'électricité réellement demandée — plus de gaspillage à vide.
+    const solarOutput = (state.generators['solar-panel'] || 0) * GENERATORS['solar-panel'].output;
+    const steamCount = state.generators['steam-engine'] || 0;
+    const steam = GENERATORS['steam-engine'];
+    const steamMax = steamCount * steam.output;
+    const desiredSteam = Math.max(0, Math.min(steamMax, demand - solarOutput));
+    const steamCoal = desiredSteam * (steam.fuel / steam.output); // charbon/kW × kW
+
+    // 4) Charbon partagé (carburant des fours + des chaudières) → ratio commun
+    const coalDemand = burnerCoal + steamCoal;
+    const coalNeeded = coalDemand * dt;
+    const coalRatio = coalDemand > 0 ? Math.min(1, stockOf('coal') / Math.max(coalNeeded, 1e-9)) : 1;
+    const coalShort = coalRatio < 0.999 && coalDemand > 0;
+
+    // 5) Électricité effectivement fournie (la vapeur baisse si le charbon manque)
+    const steamOutput = desiredSteam * coalRatio;
+    const supply = solarOutput + steamOutput;
+    const capacity = solarOutput + steamMax;            // potentiel max (charbon illimité)
     const powerRatio = demand > 0 ? Math.min(1, supply / demand) : 1;
 
-    return { coalRatio, powerRatio, supply, demand, coalDemand, steamCount, solarOutput, steamOutput };
+    return { coalRatio, powerRatio, supply, capacity, demand, coalDemand, steamCount, steamMax, solarOutput, steamOutput, coalShort };
   }
 
   // Une recette est « active » si toutes ses entrées sont disponibles (>0)
@@ -199,9 +210,11 @@ const Game = (() => {
   }
 
   /* --- Tick de simulation ---------------------------------------------- */
-  let flowAccum = {};   // suivi des flux pour l'affichage des débits
+  let flowAccum = {};        // flux NET par objet (production - consommation)
+  let recipeAccum = {};      // crafts réellement effectués par recette
   let flowTime = 0;
-  let lastRates = {};   // itemId → unités/s
+  let lastRates = {};        // itemId → variation nette du stock /s
+  let lastRecipeRates = {};  // recipeId → crafts/s réellement produits
 
   function tick(dt) {
     state.playTime += dt;
@@ -238,6 +251,7 @@ const Game = (() => {
         }
         if (crafts <= 0) continue;
 
+        recipeAccum[r.id] = (recipeAccum[r.id] || 0) + crafts; // production brute réelle
         for (const id in r.in) {
           state.stock[id] -= r.in[id] * crafts;
           flowAccum[id] = (flowAccum[id] || 0) - r.in[id] * crafts;
@@ -255,7 +269,11 @@ const Game = (() => {
       const rates = {};
       for (const id in flowAccum) rates[id] = flowAccum[id] / flowTime;
       lastRates = rates;
+      const rRates = {};
+      for (const id in recipeAccum) rRates[id] = recipeAccum[id] / flowTime;
+      lastRecipeRates = rRates;
       flowAccum = {};
+      recipeAccum = {};
       flowTime = 0;
     }
   }
@@ -336,6 +354,7 @@ const Game = (() => {
     isTechDone, recipeUnlocked, machineUnlocked, generatorUnlocked,
     techAvailable, techCost, recipeHasInputs,
     getRates: () => lastRates,
+    getRecipeRates: () => lastRecipeRates,
     getEnergy: (dt) => computeEnergy(dt),
     // actions
     manualMine, handCraft, buildMachine, removeMachine,

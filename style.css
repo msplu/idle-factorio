@@ -112,6 +112,7 @@ body {
 .recipe-name { font-weight: 600; }
 .recipe-rate { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .recipe-rate.pos { color: var(--green); }
+.recipe-rate.warn { color: var(--accent); }
 .recipe-flow { font-size: 12px; color: var(--muted); margin: 2px 0 6px; }
 .recipe-time { opacity: .6; }
 .recipe-actions { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
